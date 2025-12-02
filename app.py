@@ -1,5 +1,6 @@
 import streamlit as st
 import sqlite3
+from sqlalchemy import text 
 import pandas as pd
 from datetime import datetime, timedelta
 import altair as alt
@@ -14,7 +15,7 @@ def init_db():
     c = conn.cursor()
     
     c.execute('''CREATE TABLE IF NOT EXISTS robots (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id SERIAL PRIMARY KEY,
                     name TEXT NOT NULL,
                     model TEXT,
                     status TEXT DEFAULT 'Available'
@@ -22,14 +23,14 @@ def init_db():
     
     # Added 'qualified_models' to store what robots they can drive
     c.execute('''CREATE TABLE IF NOT EXISTS operators (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id SERIAL PRIMARY KEY,
                     name TEXT NOT NULL,
                     role TEXT,
                     qualified_models TEXT
                 )''')
     
     c.execute('''CREATE TABLE IF NOT EXISTS schedule (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id SERIAL PRIMARY KEY,
                     robot_id INTEGER,
                     operator_id INTEGER,
                     project_name TEXT,
@@ -45,17 +46,22 @@ conn = init_db()
 
 # --- Helper Functions ---
 def get_df(query, params=()):
-    return pd.read_sql_query(query, conn, params=params)
+    # return pd.read_sql_query(query, conn, params=params)
+    # st.connection uses SQLAlchemy text() for params
+    # params should be a dict, e.g. {'name': 'Spot'}
+    return conn.query(query, params=params, ttl=0)
 
-def run_query(query, params=()):
-    c = conn.cursor()
-    c.execute(query, params)
-    conn.commit()
+def run_query(query, params=None):
+    # params should be a dictionary for SQLAlchemy
+    with conn.session as s:
+        s.execute(text(query), params)
+        s.commit()
 
 def check_password():
     """Returns `True` if the user had the correct password."""
     def password_entered():
-        if st.session_state["password"] == ADMIN_PASSWORD:
+        if st.session_state["password"] ==  st.secrets[
+       "admin_password"]:
             st.session_state["password_correct"] = True
             del st.session_state["password"]  # don't store password
         else:
@@ -87,7 +93,8 @@ if check_password():
     st.sidebar.header("Status Center")
     
     # Count Total Robots
-    total_robots = get_df("SELECT count(*) as count FROM robots").iloc[0]['count']
+    total_robots_df = get_df("SELECT count(*) as count FROM robots")
+    total_robots = total_robots_df.iloc[0]['count'] if not total_robots_df.empty else 0
     
     # Count Active Jobs (Right Now)
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
