@@ -9,7 +9,8 @@ ADMIN_PASSWORD = st.secrets["admin_password"]  # Change this for your cloud vers
 
 # --- Database Setup ---
 def init_db():
-    conn = sqlite3.connect('robot_system.db', check_same_thread=False)
+    # conn = sqlite3.connect('robot_system.db', check_same_thread=False)
+    conn = st.connection("postgresql", type="sql")
     c = conn.cursor()
     
     c.execute('''CREATE TABLE IF NOT EXISTS robots (
