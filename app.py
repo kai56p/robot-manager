@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import altair as alt
 
 # --- Configuration ---
-ADMIN_PASSWORD = "secret_password"  # Change this for your cloud version
+ADMIN_PASSWORD = st.secrets["admin_password"]  # Change this for your cloud version
 
 # --- Database Setup ---
 def init_db():
